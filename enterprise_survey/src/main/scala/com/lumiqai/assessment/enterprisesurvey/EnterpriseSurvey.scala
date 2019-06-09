@@ -29,7 +29,7 @@ object EnterpriseSurvey extends FilesUtil {
 
     } finally {
       spark.stop()
-      logger.info("Spark session stopped and application terminated")
+      logger.info("------------------------Spark session stopped and application terminated------------------------")
     }
 
   }

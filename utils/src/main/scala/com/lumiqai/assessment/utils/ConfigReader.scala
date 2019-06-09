@@ -10,7 +10,7 @@ trait ConfigReader {
   val logger: Logger = Logger.getLogger("lumiq.ai")
   val config: Config = {
     try {
-      logger.info("Initializing Application. Resolving application.conf")
+      logger.info("------------------------Initializing Application. Resolving application.conf------------------------")
 
       val confFile = new File(System.getProperty("confFile"))
       val conf = ConfigFactory.parseFile(confFile).resolve()
