@@ -14,7 +14,7 @@ object EnterpriseSurvey extends FilesUtil {
     try {
 
       val df = readCSV(appName).cache()
-      logger.info(s"Loaded $appName data")
+      logger.info(s"Loaded $appName data - counts: ${df.count()}")
 
       writeParquet(appName, "file", df.filter(col("corrupt_record").isNull))
       logger.info(s"Successfully written $appName good data in parquet form")

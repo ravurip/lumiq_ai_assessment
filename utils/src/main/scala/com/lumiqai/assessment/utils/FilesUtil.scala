@@ -118,6 +118,8 @@ trait FilesUtil extends SparkUtil {
       renameFile(path)
       data.write.parquet(path)
       logger.info(s"Written parquet at location $path")
+      logger.info(s"$app - $dataKey - ${data.count()}")
+
     } catch {
       case exception: ConfigException => logger.error("Mentioned config is mandatory for read csv. Assign respective config in app.conf")
         throw exception
