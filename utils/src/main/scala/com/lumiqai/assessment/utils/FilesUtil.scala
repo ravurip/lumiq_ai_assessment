@@ -3,15 +3,14 @@ package com.lumiqai.assessment.utils
 import java.util.Date
 
 import org.apache.hadoop.fs.Path
-import com.typesafe.config.Config
-import org.apache.spark.sql.DataFrame
+import com.typesafe.config.{Config, ConfigException}
+import org.apache.spark.sql.{AnalysisException, DataFrame}
 import org.apache.spark.sql.types.{StringType, StructType}
+import org.apache.spark.sql.catalyst.parser.ParseException
 
 trait FilesUtil extends SparkUtil {
 
   private def renameFile(filePath: String): Unit = {
-    logger.info("Checking whether the file already exists or not.")
-
     try {
 
       val source = new Path(filePath)
@@ -19,14 +18,15 @@ trait FilesUtil extends SparkUtil {
       val conf = spark.sparkContext.hadoopConfiguration
       val fs = source.getFileSystem(conf)
 
+      logger.info("Checking if the file already exists")
+
       if (fs.exists(source)) {
 
-        val time = new Date().getTime
+        val time = new Date().getTime.toString
 
-        val timestamp: String = time.toString
-        val destination = new Path(filePath + "_" + timestamp)
+        val destination = new Path(filePath + "_" + time)
 
-        logger.info(s"File Already exists. Taking the backup for the file. Destination: $destination")
+        logger.info(s"File exists. Moving to destination: $destination")
 
         if (fs.rename(source, destination)) {
           logger.info("File renamed successfully")
@@ -44,44 +44,86 @@ trait FilesUtil extends SparkUtil {
   }
 
   def getConfObject(app: String): Config = {
-    config.getConfig(s"$app")
+    try {
+
+      config.getConfig(s"$app")
+    } catch {
+
+      case exception: ConfigException => logger.error(s"Ivalid config key $app. Validate Config key provided")
+        throw exception
+    }
   }
 
   def getStructType(schema: String): StructType = {
 
     var struct = new StructType()
 
-    schema
-      .split(",")
-      .foreach { column =>
-        val field = column.split("-")
-        struct = struct.add(field(0).trim, field(1))
-      }
+    try {
 
-    struct.add("corrupt_record", StringType)
+      schema
+        .split(",")
+        .foreach { column =>
+          val field = column.split("-")
+          struct = struct.add(field(0).trim, field(1))
+        }
+
+      struct.add("corrupt_record", StringType)
+    } catch {
+      case exception: ParseException => logger.error(s"Invalid schema string provided. Validate schema string from app.conf. Received $schema")
+        throw exception
+    }
   }
 
   def readCSV(app: String): DataFrame = {
 
     val conf = getConfObject(s"$app.csv")
 
-    val a: String = conf.getString("schema")
+    try {
 
-    val structType: StructType = getStructType(a)
+      val a: String = conf.getString("schema")
 
-    spark.read
-      .option("header", conf.getBoolean("header"))
-      .option("delimiter", conf.getString("delimiter"))
-      .option("mode", conf.getString("mode"))
-      .option("multiLine", conf.getString("multiLine"))
-      .schema(structType)
-      .csv(conf.getString("file"))
+      val structType: StructType = getStructType(a)
+
+      spark.read
+        .option("header", conf.getBoolean("header"))
+        .option("delimiter", conf.getString("delimiter"))
+        .option("mode", conf.getString("mode"))
+        .option("multiLine", conf.getString("multiLine"))
+        .schema(structType)
+        .csv(conf.getString("file"))
+
+    } catch {
+
+      case exception: ConfigException => logger.error("Mentioned config is mandatory for read csv. Assign respective config in app.conf")
+        throw exception
+
+      case exception: IllegalArgumentException => logger.fatal("Invalid options given for csv config. Validate app.conf")
+        throw exception
+
+      case exception: AnalysisException => logger.error(s"Error reading file: ${conf.getString("file")} \n Please validate respective file's existence.")
+        throw exception
+
+    }
   }
 
 
-  def writeParquet(app: String, data: DataFrame): Unit = {
+  def writeParquet(app: String, dataKey: String, data: DataFrame): Unit = {
 
     val conf = getConfObject(s"$app.parquet")
+
+    try {
+
+      val path: String = conf.getString(dataKey)
+
+      renameFile(path)
+      data.write.parquet(path)
+    } catch {
+      case exception: ConfigException => logger.error("Mentioned config is mandatory for read csv. Assign respective config in app.conf")
+        throw exception
+
+      case exception: Exception => logger.error(s"Error Writing file at location ${conf.getString(dataKey)}")
+        throw exception
+    }
 
   }
 
