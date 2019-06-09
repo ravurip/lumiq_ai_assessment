@@ -14,9 +14,13 @@ object EnterpriseSurvey extends FilesUtil {
     try {
 
       val df = readCSV(appName).cache()
+      logger.info(s"Loaded $appName data")
 
       writeParquet(appName, "file", df.filter(col("corrupt_record").isNull))
+      logger.info(s"Successfully written $appName good data in parquet form")
+
       writeParquet(appName, "badData", df.filter(col("corrupt_record").isNotNull))
+      logger.info(s"Successfully written $appName bad data in parquet form")
 
     } catch {
       case exception: Exception =>
@@ -25,7 +29,7 @@ object EnterpriseSurvey extends FilesUtil {
 
     } finally {
       spark.stop()
-      logger.info("Application terminated")
+      logger.info("Spark session stopped and application terminated")
     }
 
   }
