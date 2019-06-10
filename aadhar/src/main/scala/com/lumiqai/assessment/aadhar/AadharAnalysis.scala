@@ -63,6 +63,29 @@ object AadharAnalysis extends FilesUtil {
   def checkpoint3(data: DataFrame): Unit = {
     logger.info("~~~~~~~~~~~~~~~~~~~Checkpoint 3~~~~~~~~~~~~~~~~~~~")
 
+
+    val df = data.select("state", "aadhar_generated")
+      .groupBy("state")
+      .agg(sum("aadhar_generated").cast(IntegerType).as("total_aadhars_gen"))
+      .sort(desc("total_aadhars_gen")).cache
+
+    //Top3 states generating aadhar cards
+    df.select("state")
+      .show(3)
+
+    //top3 districts with most num of enrolments
+    data.select("district", "aadhar_generated", "rejected")
+      .withColumn("enrolments", (col("aadhar_generated") + col("rejected")).cast(IntegerType))
+      .groupBy("district")
+      .agg(sum("enrolments").as("total_enrolments"))
+      .sort(desc("total_enrolments"))
+      .select("district")
+      .show(3)
+
+
+    //aadhar generated in each state
+    df.show(40)
+
   }
 
   def checkpoint4(data: DataFrame): Unit = {
@@ -90,10 +113,10 @@ object AadharAnalysis extends FilesUtil {
 
       val aadharData = loadData.cache
 
-      checkpoint1(aadharData)
-      checkpoint2(aadharData)
-      //      checkpoint3(aadharData)
-      checkpoint4(aadharData)
+      //      checkpoint1(aadharData)
+      //      checkpoint2(aadharData)
+      checkpoint3(aadharData)
+      //      checkpoint4(aadharData)
       //      checkpoint5(aadharData)
 
     } catch {
