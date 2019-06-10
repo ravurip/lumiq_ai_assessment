@@ -68,14 +68,14 @@ object AadharAnalysis extends FilesUtil {
   def checkpoint4(data: DataFrame): Unit = {
     logger.info("~~~~~~~~~~~~~~~~~~~Checkpoint 4~~~~~~~~~~~~~~~~~~~")
 
+    //Unique pincodes in data
     val count = data.select("pincode").distinct.count
-
-    val rejectCnts = data.filter("state in ('Maharashtra', 'Uttar Pradesh')")
-      .select(sum("rejected").cast(IntegerType).as("rejected_counts"))
-
     logger.info(s"Total Number of pin codes - $count")
 
-    rejectCnts.show()
+    //Rejected applications in  Maharashtra and UP
+    data.filter("state in ('Maharashtra', 'Uttar Pradesh')")
+      .select(sum("rejected").cast(IntegerType).as("rejected_counts"))
+      .show()
 
   }
 
