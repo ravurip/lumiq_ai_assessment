@@ -85,6 +85,7 @@ object AadharAnalysis extends FilesUtil {
 
     //aadhar generated in each state
     df.show(40)
+    df.unpersist()
 
   }
 
@@ -105,6 +106,49 @@ object AadharAnalysis extends FilesUtil {
   def checkpoint5(data: DataFrame): Unit = {
     logger.info("~~~~~~~~~~~~~~~~~~~Checkpoint 5~~~~~~~~~~~~~~~~~~~")
 
+    /** top 3 states where the percentage of Aadhaar cards being generated for males is the highest
+      * assumption: % to be taken for total enrolments irrespective of gender */
+
+    val df = data.select("state", "gender", "aadhar_generated", "rejected")
+      .withColumn("enrolments", (col("aadhar_generated") + col("rejected")).cast(IntegerType))
+      .groupBy("state")
+      .agg((sum(when(col("gender") === lit("M"), col("aadhar_generated")).otherwise(0)) * 100 / (sum(col("enrolments")))).as("percentage"))
+      .sort(desc("percentage"))
+
+    df.select("state").show(3)
+
+
+    /** each of these 3 states, identify the top 3 districts where the percentage of Aadhaar cards being rejected for females is the highest
+      * assumption: % to be taken for total enrolments irrespective of gender */
+
+    val states = df.select("state").take(3)
+
+    states.foreach { state =>
+      val df = data.where(s"state = '${state(0)}'")
+        .select("state", "district", "gender", "aadhar_generated", "rejected")
+        .withColumn("enrolments", (col("aadhar_generated") + col("rejected")).cast(IntegerType))
+        .groupBy("district")
+        .agg((sum(when(col("gender") === lit("F"), col("aadhar_generated")).otherwise(0)) * 100 / (sum(col("enrolments")))).as("percentage"))
+        .sort(desc("percentage"))
+      println(state(0))
+
+      logger.info(s"Districts with highest aadar generation in ${state(0)}")
+
+
+      df.select("district").show(3)
+    }
+
+
+    /** summary of the acceptance percentage of all the Aadhaar cards applications by bucketing the age group into 10 buckets. */
+
+    data.repartition(10, col("age"))
+      .select("aadhar_generated", "rejected")
+      .withColumn("enrolments", (col("aadhar_generated") + col("rejected")).cast(IntegerType))
+      .agg((sum("aadhar_generated") * 100 / sum("enrolments")).as("acceptance_percaentage"))
+      .agg(sum("acceptance_percaentage").as("acceptance_percaentage_summary"))
+      .select("acceptance_percaentage_summary")
+      .show()
+
   }
 
   def main(args: Array[String]): Unit = {
@@ -117,7 +161,7 @@ object AadharAnalysis extends FilesUtil {
       checkpoint2(aadharData)
       checkpoint3(aadharData)
       checkpoint4(aadharData)
-      //      checkpoint5(aadharData)
+      checkpoint5(aadharData)
 
     } catch {
 
