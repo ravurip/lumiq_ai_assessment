@@ -113,10 +113,10 @@ object AadharAnalysis extends FilesUtil {
 
       val aadharData = loadData.cache
 
-      //      checkpoint1(aadharData)
-      //      checkpoint2(aadharData)
+      checkpoint1(aadharData)
+      checkpoint2(aadharData)
       checkpoint3(aadharData)
-      //      checkpoint4(aadharData)
+      checkpoint4(aadharData)
       //      checkpoint5(aadharData)
 
     } catch {
